@@ -43,8 +43,11 @@ class Tracking():
         frame_id = 0
         results = []
         fps = 0
+        cs=False
         # create filter class
         filter_class = [2]
+        #draw rectangle for tracking 
+        cv2.rectangle(img_info["raw_img"],(135,84),(235,698),(0,255,45),1)
         # init variable for counting object
         memory = {}
         angle = -1
@@ -52,6 +55,10 @@ class Tracking():
         prev_frame_time=time.time()
         ratio = min(self.test_size[0] / img.shape[0], self.test_size[1] / img.shape[1])
         outputs=self.detector.detect(img)
+        cls=outputs[:,5]
+        for cl in cls :
+            if cl <1 :
+                cs=True
         img_info["ratio"] = ratio
         filter_class = [2]
         if outputs is not None:
@@ -61,8 +68,7 @@ class Tracking():
             online_scores = []
             for t in online_targets:
                 tlwh = t.tlwh
-                tid = t.track_id
-                print(tid)                
+                tid = t.track_id              
                 online_tlwhs.append(tlwh)
                 online_ids.append(tid)
                 online_scores.append(t.score)
@@ -84,8 +90,13 @@ class Tracking():
                 del memory[list(memory)[0]]
             fps = 1/(time.time()-prev_frame_time) 
                   
-            online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,fps=fps)
-            cv2.putText(online_im, "FPS: {:.2f}".format(fps),(50,100),cv2.FONT_HERSHEY_TRIPLEX,2,(0,0,255),1) 
+            online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1)
+            cv2.putText(online_im, "FPS: {:.2f}".format(fps),(50,100),cv2.FONT_HERSHEY_TRIPLEX,2,(255,0,0),1) 
+            if cs :
+                cv2.putText(online_im, "Person ",(450,100),cv2.FONT_HERSHEY_TRIPLEX,2,(0,0,255),1)
+            else :
+                cv2.putText(online_im, " No Person ",(450,100),cv2.FONT_HERSHEY_TRIPLEX,2,(0,0,255),1)
+            
         else:
             online_im = img_info['raw_img']
 
@@ -106,7 +117,7 @@ if __name__ == '__main__':
         img=cv2.resize(img,(1280,720))
 
         cv2.imshow('frame',img)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(100) & 0xFF == ord('q'):
             break
         
         
