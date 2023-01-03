@@ -26,8 +26,8 @@ class Detector(object):
         output_data = torch.tensor(outputs[0])
         y = non_max_suppression(output_data, 0.25, 0.45)[0]
         y[:, :4] = scale_boxes(blob.shape[2:], y[:, :4], image.shape).round()
-
-        return y
+        bbox=y[:, :4]
+        return y,bbox
 
 
 

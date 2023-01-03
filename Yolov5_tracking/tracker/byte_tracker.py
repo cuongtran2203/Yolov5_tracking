@@ -169,7 +169,7 @@ class BYTETracker(object):
             cls = output_results[:, 6]
             
         else:
-            output_results = output_results.cpu().numpy()
+            # output_results = output_results.cpu().numpy()
             scores = output_results[:, 4] *output_results[:,5]
             bboxes = output_results[:, :4]  # x1y1x2y2
             cls = output_results[:, 5]
