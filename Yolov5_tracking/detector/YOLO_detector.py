@@ -4,7 +4,7 @@ import onnxruntime
 from .func import *
 
 class Detector(object):
-    def __init__(self, model='weights/yolov5n.onnx') -> None:
+    def __init__(self, model='weights/yolov5s.onnx') -> None:
         self.providers = ['CPUExecutionProvider']
         self.session = onnxruntime.InferenceSession(model, providers=self.providers)
     
