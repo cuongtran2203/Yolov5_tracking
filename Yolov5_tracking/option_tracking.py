@@ -17,10 +17,6 @@ def tracking(args,img,output):
     scores = output[:, 4] *output[:,5]
     box = output[:, :4]  # x1y1x2y2
     cls = output[:, 5]
-    
-
-    
-    
     if args.tracker_type=="KCF":
         tracker = cv2.TrackerKCF_create()
     if args.tracker_type=="BOOSTING":
