@@ -75,7 +75,7 @@ class Tracking():
         fps = 0
         cs=False
         # create filter class
-        filter_class = [2,5,7]
+        filter_class = [0,1,2,3,4]
         memory = {}
         angle = -1
         already_counted = deque(maxlen=50)
