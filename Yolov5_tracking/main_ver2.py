@@ -12,7 +12,7 @@ state = 0
 # now let's initialize the list of reference point
 ref_point = []
 crop = False
-  
+CLASS_NAME=["bus","car","person","trailer","truck"]
 
 # Called every time a mouse event happen
 def on_mouse(event, x, y, flags, userdata):
@@ -41,8 +41,49 @@ class Tracking_ver2():
         self.args= make_parser().parse_args()
         self.detector=Detector()
         self.test_size=(640,640)
+        
     def infer(self, img:np.ndarray):
+        tic=time.time()
         outputs,bbox=self.detector.detect(img)
+        cls=outputs[:,5]
+        print(cls)
+        img_re=img.copy()
+        if len(bbox)>0 :
+            for cl,box in zip(cls,bbox) :
+                box=box.cpu().detach().numpy()
+                box=box.astype(int)
+                box=tlbr_to_tlwh(box)
+                # print(box)
+                img_re=tracking(self.args,img,box,cl)
+        fps="FPS : {:.2f}".format(1/(time.time()-tic))
+        # print(fps)
+        # cv2.putText(img_re,fps,(50,60),cv2.FONT_HERSHEY_DUPLEX,1,(255,0,25),1)
+        return img_re
+    
+    
+if __name__ == "__main__":
+    track=Tracking_ver2()
+    cap=cv2.VideoCapture("video/video5.avi")
+    cv2.namedWindow('frame')
+    cv2.setMouseCallback('frame', on_mouse)
+    img = np.zeros((1280,720,3), np.uint8)
+    while True:
+        _,frame=cap.read()
+        frame=cv2.resize(frame,(1280,720))
+        if p1 is not None and p2 is not None :
+            img_cropped=frame[p1[1]:p2[1],p1[0]:p2[0]]
+            img_s=track.infer(img_cropped)
+                # If a ROI is selected, draw it
+            if state > 1:
+                cv2.rectangle(img_s, p1, p2, (255, 0, 0), 10)
+            cv2.rectangle(frame, (p1[0]-10,p1[1]-10),(p2[0]+10,p2[1]+10), (0, 255, 0), 3)
+            frame[p1[1]:p2[1],p1[0]:p2[0]]=img_s
+
+        cv2.imshow('frame',frame)
+        if cv2.waitKey(100) & 0xff==ord("q"):
+            break
+            
+            
         
         
     

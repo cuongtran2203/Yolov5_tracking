@@ -184,6 +184,7 @@ class BYTETracker(object):
         inds_second = np.logical_and(inds_low, inds_high)
         dets_second = bboxes[inds_second]
         dets = bboxes[remain_inds]
+        print(dets)
 
         scores_keep = scores[remain_inds]
         scores_second = scores[inds_second]

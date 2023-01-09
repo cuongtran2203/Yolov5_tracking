@@ -92,7 +92,7 @@ class Tracking():
             if cl <1  :
                 cs=True
         img_info["ratio"] = ratio
-        filter_class = [2,5,7]
+        filter_class = [0,1,2,3,4]
         if outputs is not None:
             online_targets = self.tracker.update(outputs, [img_info['height'], img_info['width']], self.test_size, filter_class)
             online_tlwhs = []
@@ -115,11 +115,12 @@ class Tracking():
 
                 memory[tid].append(midpoint)
                 previous_midpoint = memory[tid][0]
-
+                    
                 # origin_previous_midpoint = (previous_midpoint[0], img.shape[0] - previous_midpoint[1])
             if len(memory) > 50:
                 del memory[list(memory)[0]]
             fps = 1/(time.time()-prev_frame_time) 
+            print(fps)
             online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1)
             # cv2.putText(online_im, "FPS: {:.2f}".format(fps),(50,100),cv2.FONT_HERSHEY_TRIPLEX,2,(255,0,0),1) 
             if cs :
@@ -139,7 +140,7 @@ if __name__ == '__main__':
     count=0
     cv2.namedWindow('frame')
     cv2.setMouseCallback('frame', on_mouse)
-    while cap.isOpened():
+    while True:
         _,frame=cap.read()
         count+=1
         if count>length:
