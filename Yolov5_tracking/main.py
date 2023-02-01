@@ -140,13 +140,13 @@ class Tracking():
         #Area 1 
         p1_1=p1
         p2_1=p2
-        p3_1=[p1[0]-70,abs(int((p1_1[1]-p4[1])/3))+p1[1]]
-        p4_1=[p2[0]+70,abs(int((p2_1[1]-p3[1])/3))+p2[1]]
+        p3_1=[p1[0]-70,100+p1[1]]
+        p4_1=[p2[0]+70,100+p2[1]]
         Area_1=[p1_1,p2_1,p4_1,p3_1]
         
         #Area 3 
-        p1_3=[p4[0],int(p1[1]/3)]
-        p2_3=[p3[0],int(p2[1]/3)]
+        p1_3=[p4[0],p4[1]-100]
+        p2_3=[p3[0],p3[1]-100]
         p3_3=p3
         p4_3=p4
         Area_3=[p1_3,p2_3,p3_3,p4_3]
@@ -204,6 +204,8 @@ class Tracking():
             online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1)
             #draw_Area_1
             cv2.polylines(online_im,[np.array(Area_1,np.int32)],isClosed=True,color=(0,255,0),thickness=2)
+            # draw_Area_3
+            cv2.polylines(online_im,[np.array(Area_3,np.int32)],isClosed=True,color=(0,255,0),thickness=2)
             # cv2.putText(online_im, "FPS: {:.2f}".format(fps),(50,100),cv2.FONT_HERSHEY_TRIPLEX,2,(255,0,0),1) 
             for cl, box in zip(cls,bbox) :
                 cv2.putText(online_im,CLASS_NAME[int(cl)],(int(box[0]),int(box[1])+10),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,24,25),2)
