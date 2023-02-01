@@ -57,7 +57,7 @@ class Tracking_ver2():
                 img_re=tracking(self.args,img,box,cl)
         fps="FPS : {:.2f}".format(1/(time.time()-tic))
         # print(fps)
-        # cv2.putText(img_re,fps,(50,60),cv2.FONT_HERSHEY_DUPLEX,1,(255,0,25),1)
+        cv2.putText(img_re,fps,(50,60),cv2.FONT_HERSHEY_DUPLEX,1,(255,0,25),1)
         return img_re
     
     
@@ -70,14 +70,15 @@ if __name__ == "__main__":
     while True:
         _,frame=cap.read()
         frame=cv2.resize(frame,(1280,720))
-        if p1 is not None and p2 is not None :
-            img_cropped=frame[p1[1]:p2[1],p1[0]:p2[0]]
-            img_s=track.infer(img_cropped)
-                # If a ROI is selected, draw it
-            if state > 1:
-                cv2.rectangle(img_s, p1, p2, (255, 0, 0), 10)
-            cv2.rectangle(frame, (p1[0]-10,p1[1]-10),(p2[0]+10,p2[1]+10), (0, 255, 0), 3)
-            frame[p1[1]:p2[1],p1[0]:p2[0]]=img_s
+        # if p1 is not None and p2 is not None :
+        #     img_cropped=frame[p1[1]:p2[1],p1[0]:p2[0]]
+        #     img_s=track.infer(img_cropped)
+        #         # If a ROI is selected, draw it
+        #     if state > 1:
+        #         cv2.rectangle(img_s, p1, p2, (255, 0, 0), 10)
+        #     cv2.rectangle(frame, (p1[0]-10,p1[1]-10),(p2[0]+10,p2[1]+10), (0, 255, 0), 3)
+        #     frame[p1[1]:p2[1],p1[0]:p2[0]]=img_s
+        track.infer(frame)
 
         cv2.imshow('frame',frame)
         if cv2.waitKey(100) & 0xff==ord("q"):

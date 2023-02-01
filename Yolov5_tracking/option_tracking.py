@@ -10,7 +10,7 @@ def tlbr_to_tlwh(tlbr):
     return ret
 def make_parser():
     parser=argparse.ArgumentParser("Tracking Opencv")
-    parser.add_argument("--tracker_type",type=str,default="KCF",help="select tracking algorithm")
+    parser.add_argument("--tracker_type",type=str,default="CSRT",help="select tracking algorithm")
     return parser
 def get_color(idx):
     idx = idx * 3
@@ -24,6 +24,7 @@ def tracking(args,img,box,cls):
     # scores = output[:, 4] *output[:,5]
     # box = output[:, :4]  # x1y1x2y2
     # cls = output[:, 5]
+    
     if args.tracker_type=="KCF":
         tracker = cv2.TrackerKCF_create()
     if args.tracker_type=="BOOSTING":
@@ -60,7 +61,7 @@ def tracking(args,img,box,cls):
         cv2.putText(img, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
 
     # Display tracker type on frame
-    # cv2.putText(img, args.tracker_type + " Tracker", (100,20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2)
+    cv2.putText(img, args.tracker_type + " Tracker", (100,20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2)
     return img
     
     
