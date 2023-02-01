@@ -94,7 +94,7 @@ def on_mouse(event, x, y, flags, userdata):
         p1, p2 = None, None
         state = 0
 M={"bus":[],"car":[],"trailer":[],"truck":[],"person":[]}
-online_midpoints_current = []
+object_entering = {}
 COCO_MEAN = (0.485, 0.456, 0.406)
 COCO_STD = (0.229, 0.224, 0.225)
 class Args():
@@ -114,7 +114,7 @@ class Tracking():
         self.tracker = BYTETracker(args, frame_rate=22)
         self.detector = Detector()
         self.test_size=(640,640)
-    def infer(self,img:np.ndarray,p1,p2):
+    def infer(self,img:np.ndarray):
         
         img_info = {"id": 0}
         height, width = img.shape[:2]
@@ -137,39 +137,30 @@ class Tracking():
         already_counted = deque(maxlen=50)
         prev_frame_time=time.time()
         ratio =1
-        # if p1 is not None and p2 is not None:
-            # img_cropped = img[p2[1]:p1[1], p2[0]:p1[0]]
-       
+        #Area 1 
+        p1_1=p1
+        p2_1=p2
+        p3_1=[p1[0]-70,abs(int((p1_1[1]-p4[1])/3))+p1[1]]
+        p4_1=[p2[0]+70,abs(int((p2_1[1]-p3[1])/3))+p2[1]]
+        Area_1=[p1_1,p2_1,p4_1,p3_1]
+        
+        #Area 3 
+        p1_3=[p4[0],int(p1[1]/3)]
+        p2_3=[p3[0],int(p2[1]/3)]
+        p3_3=p3
+        p4_3=p4
+        Area_3=[p1_3,p2_3,p3_3,p4_3]
+        
        
         
         outputs,bbox=self.detector.detect(img)
         output_new=[]
         cls=outputs[:,5]
-       
-            
-        # print(type(outputs),outputs.shape)
-        
-        # cls=cls.cpu().detach().numpy()
-        # print(type(cls))
-        # for cl in cls.unique() :
-        #     n=(cls==cl).sum()  #detection per class
-        #     cl=cl.cpu().detach().numpy()
-        #     class_index=int(cl)
-        #     count_of_object=int(n)
-        #     founded_classes = {}
-        #     founded_classes[CLASS_NAME[class_index]]=int(n)
-        #     print(founded_classes)
-        #     #s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
-        #     count(founded_classes=founded_classes,im0=online_im)
-        # if int(cl) ==2  :
-        #     cs=True
         img_info["ratio"] = ratio
         filter_class = [0,1,3,4]
         
         if outputs is not None:
             online_targets = self.tracker.update(outputs, [img_info['height'], img_info['width']], self.test_size, filter_class)
-            # print("Groups",self.tracker.fillter_output(outputs))
-            # print("Targets :" , self.tracker.update_multi_label(outputs, [img_info['height'], img_info['width']], self.test_size, filter_class))
             online_tlwhs = []
             online_ids = []
             online_scores = []
@@ -187,12 +178,16 @@ class Tracking():
                 # get midpoint from bbox
                 midpoint = tlbr_midpoint(tlwh)
                 origin_midpoint = (midpoint[0], img.shape[0] - midpoint[1]) # get midpoint respective to bottom-left
-                dict_less={tid:origin_midpoint,'time':time.time()}
-                # print(dict_less)
-                for key in dict_less.keys():
-                    if key not in online_midpoints_current:
-                        online_midpoints_current.append(dict_less)
-                print(online_midpoints_current)
+                re=cv2.pointPolygonTest(np.array(Area_1,np.int32),(int(origin_midpoint[0]),int(origin_midpoint[1])),False)
+                if re>=0:
+                    object_entering[str(tid)]=time.time()
+              
+                    
+                
+                
+
+                
+          
                 cv2.circle(online_im,origin_midpoint,4,(255,25,24),3)
 
                 if tid not in memory:
@@ -200,16 +195,16 @@ class Tracking():
 
                 memory[tid].append(midpoint)
                 previous_midpoint = memory[tid][0]
-                    
+            print(object_entering)       
                 # origin_previous_midpoint = (previous_midpoint[0], img.shape[0] - previous_midpoint[1])
             if len(memory) > 50:
                 del memory[list(memory)[0]]
             fps = 1/(time.time()-prev_frame_time) 
             # print(fps)
             online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1)
+            #draw_Area_1
+            cv2.polylines(online_im,[np.array(Area_1,np.int32)],isClosed=True,color=(0,255,0),thickness=2)
             # cv2.putText(online_im, "FPS: {:.2f}".format(fps),(50,100),cv2.FONT_HERSHEY_TRIPLEX,2,(255,0,0),1) 
-            
-
             for cl, box in zip(cls,bbox) :
                 cv2.putText(online_im,CLASS_NAME[int(cl)],(int(box[0]),int(box[1])+10),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,24,25),2)
                 midpoint=(int((box[0]+box[2])/2),int((box[1]+box[3])/2))
@@ -246,7 +241,7 @@ if __name__ == '__main__':
     img = np.zeros((1280,720,3), np.uint8)
     track=Tracking()
     count=0
-    
+    check=0
     cv2.namedWindow('frame')
     cv2.setMouseCallback('frame', on_mouse)
     while True:
@@ -280,20 +275,19 @@ if __name__ == '__main__':
             # dst = cv2.bitwise_and(img_croped, img_croped, mask=mask)
             mask=find_lane_line(img_croped)
             center=[[abs(int((p1[0]+p2[0])/2)),abs(int((p1[1]+p2[1])/2))],[abs(int((p3[0]+p4[0])/2)),abs(int((p3[1]+p4[1])/2))]]
-            cv2.line(img_croped,center[0],center[1],(255,0,0),3)
+            # cv2.line(img_croped,center[0],center[1],(255,0,0),3)
             contours = find_contour(mask)
-            
             for c in contours :
                 if len(c)>20 and len(c)<100:
-                    
                     dist=calculate_distance(c[0][0],np.array(center))
                     if dist <30 :
                         c3_new.append(c)
                         cv2.drawContours(img_croped,c,-1,(0,0,255),3)
+                        
             print(len(c3_new))
 
             # img_cropped=frame[p1[1]:p2[1],p1[0]:p2[0]]
-            img_s,count_car,count_bus,count_trailer,count_truck,cs=track.infer(img_croped,p1,p2)
+            img_s,count_car,count_bus,count_trailer,count_truck,cs=track.infer(img_croped)
             cv2.putText(img,"Bus : {}".format(count_bus),(10,50),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
             cv2.putText(img,"Car : {}".format(count_car),(10,70),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
             cv2.putText(img,"Trailer : {}".format(count_trailer),(10,90),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
