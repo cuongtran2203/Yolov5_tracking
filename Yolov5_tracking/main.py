@@ -13,12 +13,29 @@ from tracker.byte_tracker import BYTETracker
 from detector.YOLO_detector import Detector
 from detector.func import *
 from draw_ROI import *
+from lane_line_detector import *
+import time
 p1, p2,p3,p4 = None, None,None,None
 state = 0
 # now let's initialize the list of reference point
 ref_point = []
 crop = False
 CLASS_NAME=["bus","car","person","trailer","truck"]
+def get_area_detect(img, points):
+    # points = points.reshape((-1, 1, 2))
+    mask = np.zeros(img.shape[:2], np.uint8)
+    cv2.drawContours(mask, [points], -1, (255, 255, 255), -1, cv2.LINE_AA)
+    dts = cv2.bitwise_and(img, img, mask=mask)
+
+    return dts
+def estimate_velocity(frame:np.ndarray, len_contours=None,A=[None,None],B=[None,None],delta_t=None) :
+    distance_constant=len(len_contours)+3*(len_contours-1)
+    meters_per_pixel=distance_constant/frame.shape[0]
+    distance_in_pixel=abs(A[1]-B[1])
+    distance_in_meter_zone=meters_per_pixel*distance_in_pixel
+    speed=distance_in_meter_zone/delta_t
+    return speed
+    
 def count(founded_classes, im0):
 
   for i, (k,v) in enumerate(founded_classes.items()):
@@ -77,7 +94,7 @@ def on_mouse(event, x, y, flags, userdata):
         p1, p2 = None, None
         state = 0
 M={"bus":[],"car":[],"trailer":[],"truck":[],"person":[]}
-
+online_midpoints_current = []
 COCO_MEAN = (0.485, 0.456, 0.406)
 COCO_STD = (0.229, 0.224, 0.225)
 class Args():
@@ -122,6 +139,8 @@ class Tracking():
         ratio =1
         # if p1 is not None and p2 is not None:
             # img_cropped = img[p2[1]:p1[1], p2[0]:p1[0]]
+       
+       
         
         outputs,bbox=self.detector.detect(img)
         output_new=[]
@@ -154,7 +173,8 @@ class Tracking():
             online_tlwhs = []
             online_ids = []
             online_scores = []
-           
+            
+            
             for t in online_targets:
                 tlwh = t.tlwh
                 tid = t.track_id              
@@ -167,6 +187,12 @@ class Tracking():
                 # get midpoint from bbox
                 midpoint = tlbr_midpoint(tlwh)
                 origin_midpoint = (midpoint[0], img.shape[0] - midpoint[1]) # get midpoint respective to bottom-left
+                dict_less={tid:origin_midpoint,'time':time.time()}
+                # print(dict_less)
+                for key in dict_less.keys():
+                    if key not in online_midpoints_current:
+                        online_midpoints_current.append(dict_less)
+                print(online_midpoints_current)
                 cv2.circle(online_im,origin_midpoint,4,(255,25,24),3)
 
                 if tid not in memory:
@@ -190,6 +216,7 @@ class Tracking():
                 cv2.circle(online_im,midpoint,5,(255,25,24),cv2.FILLED)
                 if int(cl)==2:
                     cs=True
+            # print(center)
             
             for cl,id in zip(cls,online_ids):
                 # print("id:",id)
@@ -202,27 +229,29 @@ class Tracking():
             count_trailer=len(M["trailer"])
             count_truck=len(M["truck"])
             
-                
+            # print(online_midpoints_current)   
                 
             # if cs :
             #     cv2.putText(online_im, "Person ",(450,100),cv2.FONT_HERSHEY_TRIPLEX,2,(0,0,255),1)
             # else :
             #     cv2.putText(online_im, " No Person ",(450,100),cv2.FONT_HERSHEY_TRIPLEX,2,(0,0,255),1)
-        print(M)
+        # print(M)
         return online_im,count_car,count_bus,count_trailer,count_truck,cs
         # else :
         #     return online_im
 if __name__ == '__main__':
 
-    cap=cv2.VideoCapture("video/video6.avi")
+    cap=cv2.VideoCapture("video/video5.avi")
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     img = np.zeros((1280,720,3), np.uint8)
     track=Tracking()
     count=0
+    
     cv2.namedWindow('frame')
     cv2.setMouseCallback('frame', on_mouse)
     while True:
         _,frame=cap.read()
+        c3_new=[]
         count+=1
         if count>length:
             break
@@ -234,28 +263,37 @@ if __name__ == '__main__':
 
         if p1 is not None and p2 is not None and p3 is not None and p4 is not None :
             pts=np.array([p1,p2,p3,p4],np.int32)
+           
+            
             p1_new=[p1[0]+10,p1[1]+10]
             p2_new=[p2[0]+10,p2[1]+10]
             p3_new=[p3[0]+10,p3[1]+10]
             p4_new=[p4[0]+10,p4[1]+10]
             pts_new=np.array([p1_new,p2_new,p3_new,p4_new],np.int32)
             
-            ## (1) Crop the bounding rect
-            rect = cv2.boundingRect(pts)
-            x,y,w,h = rect
-            img_croped = img[y:y+h, x:x+w].copy()
-            ## (2) make mask
-            pts = pts - pts.min(axis=0)
-
-            mask = np.zeros(img_croped.shape[:2], np.uint8)
-            cv2.drawContours(mask, [pts], -1, (255, 255, 255), -1, cv2.LINE_AA)
-
+            # ## (1) Crop the bounding rect
+            # rect = cv2.boundingRect(pts)
+            # x,y,w,h = rect
+            # img_croped = img[y:y+h, x:x+w].copy()
+            img_croped=get_area_detect(img,pts)
             ## (3) do bit-op
-            dst = cv2.bitwise_and(img_croped, img_croped, mask=mask)
-            isClosed = True
+            # dst = cv2.bitwise_and(img_croped, img_croped, mask=mask)
+            mask=find_lane_line(img_croped)
+            center=[[abs(int((p1[0]+p2[0])/2)),abs(int((p1[1]+p2[1])/2))],[abs(int((p3[0]+p4[0])/2)),abs(int((p3[1]+p4[1])/2))]]
+            cv2.line(img_croped,center[0],center[1],(255,0,0),3)
+            contours = find_contour(mask)
+            
+            for c in contours :
+                if len(c)>20 and len(c)<100:
+                    
+                    dist=calculate_distance(c[0][0],np.array(center))
+                    if dist <30 :
+                        c3_new.append(c)
+                        cv2.drawContours(img_croped,c,-1,(0,0,255),3)
+            print(len(c3_new))
 
             # img_cropped=frame[p1[1]:p2[1],p1[0]:p2[0]]
-            img_s,count_car,count_bus,count_trailer,count_truck,cs=track.infer(dst,p1,p2)
+            img_s,count_car,count_bus,count_trailer,count_truck,cs=track.infer(img_croped,p1,p2)
             cv2.putText(img,"Bus : {}".format(count_bus),(10,50),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
             cv2.putText(img,"Car : {}".format(count_car),(10,70),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
             cv2.putText(img,"Trailer : {}".format(count_trailer),(10,90),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
@@ -267,12 +305,9 @@ if __name__ == '__main__':
                 
                 
                 # If a ROI is selected, draw it
-            if state > 4:
-                
-                cv2.polylines(img,[pts_new],isClosed,(255,0,0),3)
                 
             cv2.imshow("sss",img_s)
-            img[y:y+h, x:x+w]=img_s
+            # img[y:y+h, x:x+w]=img_s
         
 
         cv2.imshow('frame',img)

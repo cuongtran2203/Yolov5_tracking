@@ -7,13 +7,13 @@ from src.counting import *
 from detector.YOLO_detector import Detector
 from detector.func import *
 from option_tracking import *
+from lane_line_detector import *
 p1, p2 = None, None
 state = 0
 # now let's initialize the list of reference point
 ref_point = []
 crop = False
 CLASS_NAME=["bus","car","person","trailer","truck"]
-
 # Called every time a mouse event happen
 def on_mouse(event, x, y, flags, userdata):
     global state, p1, p2
@@ -44,6 +44,7 @@ class Tracking_ver2():
         
     def infer(self, img:np.ndarray):
         tic=time.time()
+        mask=find_lane_line(img)
         outputs,bbox=self.detector.detect(img)
         cls=outputs[:,5]
         print(cls)
@@ -67,6 +68,7 @@ if __name__ == "__main__":
     cv2.namedWindow('frame')
     cv2.setMouseCallback('frame', on_mouse)
     img = np.zeros((1280,720,3), np.uint8)
+    
     while True:
         _,frame=cap.read()
         frame=cv2.resize(frame,(1280,720))
