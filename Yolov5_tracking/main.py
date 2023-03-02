@@ -81,13 +81,10 @@ class Tracking():
     def infer(self,img:np.ndarray):
         img_info = {"id": 0}
         height, width = img.shape[:2]
-        online_im=img.copy()
-        frame_id = 0
         cs=False
         # create filter class
         filter_class = [0]
         ratio =1  
-        start_time=time.time()
         outputs,bbox=self.detector.detect(img)
         # print("img shape :",img.shape)
         cls=outputs[:,5]
@@ -100,42 +97,28 @@ class Tracking():
             online_ids = []
             online_scores = []
             current_dict_info={}
-            for t,box in zip(online_targets,bbox):
+            for t in online_targets:
                 tlwh = t.tlwh
                 tid = t.track_id              
                 online_tlwhs.append(tlwh)
                 online_ids.append(tid)
                 online_scores.append(t.score)
-                midpoint = tlbr_midpoint(tlwh)
-                # print("midpoint",mid_p)
-                origin_midpoint = (midpoint[0], img.shape[0] - midpoint[1]) # get midpoint respective to bottom-left
-                info_list_id=[origin_midpoint,time.time()]#save info ids [ (cx,cy),time]
-                current_dict_info.update({str(tid):info_list_id})  
-            online_im= plot_tracking(img, online_tlwhs, online_ids, frame_id=frame_id + 1)
-            for cl, id,box,speed in zip(cls,online_ids,bbox,speed_list) :
+            for cl, id in zip(cls,online_ids) :
                 if str(id) not in M[CLASS_NAME[int(cl)]]:
                     M[CLASS_NAME[int(cl)]].append(str(id))
+                    print(M)
                 if int(cl)==2 :
                     cs=True
-                else :
-                    if int(cl)!=2 and speed>1:
-                        cv2.putText(frame,"{:.2f} km/h".format(speed),(int(box[0]),int(box[1])+10),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,24,25),2)
-            speed_list.clear()
             list_count=[len(M["car"]),len(M["bus"]),len(M["trailer"]),len(M["truck"])]
-        fps=1/(time.time()-start_time) 
-        # print(fps)
-        speed_list.clear()
-        return frame,list_count,cs,current_dict_info,bbox,fps,cls,online_ids
+        return list_count,cs,bbox,cls,online_ids
 
 if __name__ == '__main__':
-    prev_dict_id ={}
     cap=cv2.VideoCapture("./video/video5.avi")
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     img = np.zeros((1280,720,3), np.uint8)
     track=Tracking()
     count=0
     check=0
-    speed_list=[]
     np_Area_A,np_Area_B,np_Area_C=None,None,None
     enter_areaA={}
     enter_areaB={}
@@ -163,7 +146,7 @@ if __name__ == '__main__':
             cv2.polylines(img,[pts],True,(0,0,142),3)
             img_copy=img_croped.copy()
             #Tracking
-            img_s,list_count,cs,dict_info,bbox,fps,cls,online_ids=track.infer(img_croped)
+            list_count,cs,bbox,cls,online_ids=track.infer(img_croped)
             for box in bbox :
                 cv2.rectangle(img,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),(255,0,125),2)
                 box=list(map(int,box))
@@ -194,9 +177,6 @@ if __name__ == '__main__':
             np_Area_A=np.array([Area_A[0],Area_A[1],Area_A[3],Area_A[2]],np.int32)
             np_Area_B=np.array([Area_B[1],Area_B[0],Area_B[2],Area_B[3]],np.int32)
             np_Area_C=np.array([Area_C[0],Area_C[1],Area_C[3],Area_C[2]],np.int32)
-            # cv2.polylines(img,[np_Area_A],True,(125,0,142),3)
-            # cv2.polylines(img,[np_Area_B],True,(0,100,142),3)
-            # cv2.polylines(img,[np_Area_C],True,(250,120,142),3)
             contours = find_contour(mask)
             for c in contours :
                 if len(c)>20 and len(c)<100:
@@ -246,8 +226,6 @@ if __name__ == '__main__':
                     '''
          
                     result_C=cv2.pointPolygonTest(np_Area_C,mid_point,False)
-            if len(dict_info)>0:
-                prev_dict_id=dict_info.copy()
         cv2.imshow('frame',img)
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
