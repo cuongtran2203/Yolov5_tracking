@@ -106,14 +106,13 @@ class Tracking():
             for cl, id in zip(cls,online_ids) :
                 if str(id) not in M[CLASS_NAME[int(cl)]]:
                     M[CLASS_NAME[int(cl)]].append(str(id))
-                    print(M)
                 if int(cl)==2 :
                     cs=True
             list_count=[len(M["car"]),len(M["bus"]),len(M["trailer"]),len(M["truck"])]
         return list_count,cs,bbox,cls,online_ids
 
 if __name__ == '__main__':
-    cap=cv2.VideoCapture("./video/video5.avi")
+    cap=cv2.VideoCapture("./video/video4.avi")
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     img = np.zeros((1280,720,3), np.uint8)
     track=Tracking()
@@ -204,6 +203,7 @@ if __name__ == '__main__':
                     if result_B >=0:
                         enter_areaB[str(id)]=time.time()
                         mid_point_ereB[str(id)]=mid_point
+                    print("enter area B",enter_areaB)
                     result_A=cv2.pointPolygonTest(np_Area_A,mid_point,False)
                     if result_A >=0:
                         if str(id) in enter_areaB.keys():
@@ -224,7 +224,7 @@ if __name__ == '__main__':
                     Để phát hiện xem xe có dừng đỗ hay không t có thể dựa vào thời gian tồn tại trong vùng không gian đó 
                     
                     '''
-         
+                    print("enter earea A",enter_areaA)
                     result_C=cv2.pointPolygonTest(np_Area_C,mid_point,False)
         cv2.imshow('frame',img)
         if cv2.waitKey(25) & 0xFF == ord('q'):
