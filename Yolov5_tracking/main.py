@@ -112,7 +112,7 @@ class Tracking():
         return list_count,cs,bbox,cls,online_ids
 
 if __name__ == '__main__':
-    cap=cv2.VideoCapture("./video/video4.avi")
+    cap=cv2.VideoCapture("./video/video5.avi")
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     img = np.zeros((1280,720,3), np.uint8)
     track=Tracking()
