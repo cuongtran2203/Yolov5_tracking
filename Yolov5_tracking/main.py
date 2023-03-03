@@ -23,18 +23,6 @@ def get_area_detect(img, points):
     cv2.drawContours(mask, [points], -1, (255, 255, 255), -1, cv2.LINE_AA)
     dts = cv2.bitwise_and(img, img, mask=mask)
     return dts
-# def estimate_velocity(A=[None,None],B=[None,None],delta_t=None) :
-#     # distance_max_pixel=max(math.hypot(abs(p1[0]-p4[0]),abs(p1[1]-p4[1])),math.hypot(abs(p2[0]-p3[0]),abs(p2[1]-p3[1])))
-#     # distance_constant=distance_max_pixel*ratio
-#     # meters_per_pixel=distance_constant/distance_max_pixel
-#     distance_in_pixel=math.hypot(abs(A[0]-B[0]),abs(A[1]-B[1]))
-  
-#     distance_in_meter_zone=ratio*distance_in_pixel
-#     speed=distance_in_meter_zone/delta_t
-
-#     return speed*math.cos(math.pi/3)
-    
- 
 # Called every time a mouse event happen
 def on_mouse(event, x, y, flags, userdata):
     global state, p1, p2,p3,p4
@@ -65,7 +53,7 @@ class Args():
     def __init__(self) -> None:
         self.track_thresh = 0.4
         self.track_buffer = 30
-        self.match_thresh = 0.8
+        self.match_thresh = 0.7
         self.aspect_ratio_thresh = 1.6
         self.min_box_area = 10
         self.mot20 = True
@@ -112,22 +100,23 @@ class Tracking():
         return list_count,cs,bbox,cls,online_ids
 
 if __name__ == '__main__':
-    cap=cv2.VideoCapture("./video/video5.avi")
+    cap=cv2.VideoCapture("./video/video10.avi")
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     img = np.zeros((1280,720,3), np.uint8)
     track=Tracking()
     count=0
     check=0
-    np_Area_A,np_Area_B,np_Area_C=None,None,None
-    enter_areaA={}
-    enter_areaB={}
-    mid_point_ereA={}
-    mid_point_ereB={}
+    online_ids =[]
+    start_point={}
+    
+    check_point={}
+    update_point_t1={}
     M={"bus":[],"car":[],"trailer":[],"truck":[],"person":[],"lane":[],"bike":[]}
     Max_contours=0
     cv2.namedWindow('frame')
     cv2.setMouseCallback('frame', on_mouse)
     while True:
+        update_point={}
         _,frame=cap.read()
         c3_new=[]
         count+=1
@@ -135,7 +124,6 @@ if __name__ == '__main__':
             break
         frame=cv2.resize(frame,(1280,720))
         img=frame.copy()
-        img_s=frame.copy()
         start_time=time.time()
         # Cropping image
         if p1 is not None and p2 is not None and p3 is not None and p4 is not None :
@@ -160,22 +148,6 @@ if __name__ == '__main__':
             point_1=[int((arr_point[0][0]+arr_point[1][0])/2),int((arr_point[0][1]+arr_point[1][1])/2)]
             point_2=[int((arr_point[2][0]+arr_point[3][0])/2),int((arr_point[2][1]+arr_point[3][1])/2)]
             center=[point_1,point_2]
-            A=[arr_point[3][0],arr_point[3][1]*2/3]
-            B=[arr_point[2][0],arr_point[2][1]*2/3]
-            C=[arr_point[1][0]+100,arr_point[1][1]*1.6]
-            D=[arr_point[0][0]-100,arr_point[0][1]*1.6]
-            Area_A=[arr_point[3],arr_point[2],A,B]
-            Area_A.sort(key=lambda x:x[1])
-            # print('A area',Area_A)
-            Area_B=[C,D,arr_point[1],arr_point[0]]
-            Area_B.sort(key=lambda x:x[1])
-            # print('B Area',Area_B)
-            Area_C=[A,B,C,D]
-            Area_C.sort()
-            # print("C Area",Area_C)
-            np_Area_A=np.array([Area_A[0],Area_A[1],Area_A[3],Area_A[2]],np.int32)
-            np_Area_B=np.array([Area_B[1],Area_B[0],Area_B[2],Area_B[3]],np.int32)
-            np_Area_C=np.array([Area_C[0],Area_C[1],Area_C[3],Area_C[2]],np.int32)
             contours = find_contour(mask)
             for c in contours :
                 if len(c)>20 and len(c)<100:
@@ -195,38 +167,45 @@ if __name__ == '__main__':
                 cv2.putText(img,"Person : Found ",(10,130),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
             else :
                 cv2.putText(img,"Person : Not Found ",(10,130),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
+            print(" Have {} object in region".format(len(bbox)))
             for box,cl,id in zip(bbox,cls,online_ids):
                 if int(cl)!=2 :
-                    
                     mid_point=(int((box[0]+box[2])/2),int((box[1]+box[3])/2))
-                    result_B=cv2.pointPolygonTest(np_Area_B,mid_point,False)
-                    if result_B >=0:
-                        enter_areaB[str(id)]=time.time()
-                        mid_point_ereB[str(id)]=mid_point
-                    print("enter area B",enter_areaB)
-                    result_A=cv2.pointPolygonTest(np_Area_A,mid_point,False)
-                    if result_A >=0:
-                        if str(id) in enter_areaB.keys():
-                            enter_areaA[str(id)]=time.time()-enter_areaB[str(id)]
-                            mid_point_ereA[str(id)]=mid_point
-                            point_B= mid_point_ereB[str(id)]
-                            distance_in_pixel=math.hypot(abs(mid_point[0]-point_B[0]),abs(mid_point[1]-point_B[1]))
-                            '''
-                            Ở đây ta tính tỷ lệ pixels trên khung hình là 4 pixels /mm 
-                            Thời gian được tính là ms
-                            Công thức tính khoảng cách thực = tỷ lệ pixels* khoảng cách giữa 2 điểm trên khung hình
-                            '''
-                            constant_distance=distance_in_pixel/4 #met
-                            velocity=(constant_distance/enter_areaA[str(id)])*3.6
-                            print("velocity : ",velocity)
-                            cv2.putText(img,"{:.2f} km/h".format(velocity),(int(box[0]),int(box[1])+10),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,24,25),2)
-                    '''
-                    Để phát hiện xem xe có dừng đỗ hay không t có thể dựa vào thời gian tồn tại trong vùng không gian đó 
-                    
-                    '''
-                    print("enter earea A",enter_areaA)
-                    result_C=cv2.pointPolygonTest(np_Area_C,mid_point,False)
+                    if str(id) not in start_point.keys():
+                        start_point[str(id)]=[mid_point,time.time()]
+                        print("Add object to dict")
+                    update_point[str(id)]=[mid_point,time.time()]
+
+                
+            list_start_point_keys=list(start_point.keys())
+            list_update_point_keys=list(update_point.keys())
+            
+            
+            
+            '''
+            Hàm xử lý khi đã có 3 mảng
+            '''
+            '''
+            Khởi tạo 1 biến bool để làm chậm 1 nhịp cập nhật value trong dict 
+            
+            '''
+            if check %2 ==0 :
+                update_point_t1=update_point.copy()
+                check +=1 
+            '''
+            Phát hiện đối tượng đi ra khỏi vùng quan sát 
+            '''
+            print(" Có  {} đối tượng đã đi ra khỏi vùng quan sát ".format(len(list_start_point_keys)-len(list_update_point_keys)))
+            print("Current ",list_update_point_keys)
+            print("Previous ",list_start_point_keys)
+            print("At time t -1 :",list(update_point_t1.keys()))
+            # if list_start_point_keys!= list_update_point_keys :
+            #     print("Have some objects disappear")
+                  
         cv2.imshow('frame',img)
+        ##### Clear dict update_point_t1 sau khi đã sử dụng ###########
+        
+        
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
         
