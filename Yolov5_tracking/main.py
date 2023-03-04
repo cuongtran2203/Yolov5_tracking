@@ -16,7 +16,7 @@ p1, p2,p3,p4 = None, None,None,None
 state = 0
 frame =None
 crop = False
-CLASS_NAME=["bus","car","lane","person","trailer","truck","bike"]
+CLASS_NAME=["bus","car","person","trailer","truck"]
 def get_area_detect(img, points):
     # points = points.reshape((-1, 1, 2))
     mask = np.zeros(img.shape[:2], np.uint8)
@@ -46,7 +46,7 @@ def on_mouse(event, x, y, flags, userdata):
             state += 1
     # Right click (erase current ROI)
     if event == cv2.EVENT_LBUTTONDBLCLK:
-        p1, p2,p3,p4 = None, None
+        p1, p2,p3,p4 = None, None,None,None
         state = 0
 
 class Args():
@@ -69,9 +69,7 @@ class Tracking():
     def infer(self,img:np.ndarray):
         img_info = {"id": 0}
         height, width = img.shape[:2]
-        cs=False
         # create filter class
-        filter_class = [0]
         ratio =1  
         outputs,bbox=self.detector.detect(img)
         # print("img shape :",img.shape)
@@ -84,7 +82,6 @@ class Tracking():
             online_tlwhs = []
             online_ids = []
             online_scores = []
-            current_dict_info={}
             for t in online_targets:
                 tlwh = t.tlwh
                 tid = t.track_id              
@@ -94,13 +91,11 @@ class Tracking():
             for cl, id in zip(cls,online_ids) :
                 if str(id) not in M[CLASS_NAME[int(cl)]]:
                     M[CLASS_NAME[int(cl)]].append(str(id))
-                if int(cl)==2 :
-                    cs=True
             list_count=[len(M["car"]),len(M["bus"]),len(M["trailer"]),len(M["truck"])]
-        return list_count,cs,bbox,cls,online_ids
+        return list_count,bbox,cls,online_ids
 
 if __name__ == '__main__':
-    cap=cv2.VideoCapture("./video/video10.avi")
+    cap=cv2.VideoCapture("./video/video9.avi")
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     img = np.zeros((1280,720,3), np.uint8)
     track=Tracking()
@@ -108,13 +103,15 @@ if __name__ == '__main__':
     check=0
     online_ids =[]
     start_point={}
-    
     check_point={}
     update_point_t1={}
     M={"bus":[],"car":[],"trailer":[],"truck":[],"person":[],"lane":[],"bike":[]}
     Max_contours=0
     cv2.namedWindow('frame')
     cv2.setMouseCallback('frame', on_mouse)
+    result = cv2.VideoWriter('file.avi', 
+                         cv2.VideoWriter_fourcc(*'MJPG'),
+                         10, (1280,720))
     while True:
         update_point={}
         _,frame=cap.read()
@@ -133,21 +130,27 @@ if __name__ == '__main__':
             cv2.polylines(img,[pts],True,(0,0,142),3)
             img_copy=img_croped.copy()
             #Tracking
-            list_count,cs,bbox,cls,online_ids=track.infer(img_croped)
-            for box in bbox :
+            list_count,bbox,cls,online_ids=track.infer(img_croped)
+            for box,cl in zip(bbox,cls) :
                 cv2.rectangle(img,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),(255,0,125),2)
+                cv2.putText(img,CLASS_NAME[int(cl)],(int(box[2]),int(box[3])-10),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
+                if int(cl)==2:
+                    cv2.putText(img,"Person : Found ",(10,130),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
                 box=list(map(int,box))
                 img_vehicle=np.zeros([box[3]-box[1],box[2]-box[0],3],dtype=np.uint8,order='C')
                 img_copy[box[1]:box[3],box[0]:box[2]]=img_vehicle
             mask=find_lane_line(img_copy)
             arr_point=[p1,p2,p3,p4]
-            arr_point_1=[p1,p2,p3,p4]
-            arr_point_1.sort()
             #sort array from y
             arr_point.sort(key=lambda x:x[1])
+            p1_1,p2_1,p3_1,p4_1=arr_point
             point_1=[int((arr_point[0][0]+arr_point[1][0])/2),int((arr_point[0][1]+arr_point[1][1])/2)]
             point_2=[int((arr_point[2][0]+arr_point[3][0])/2),int((arr_point[2][1]+arr_point[3][1])/2)]
             center=[point_1,point_2]
+            area_Goal=np.array([[p4_1[0],p4_1[1]-150],[p3_1[0],p3_1[1]-150],p3_1,p4_1],dtype=np.int32)
+            cv2.polylines(img,[area_Goal],True,(0,125,125),4)
+            # point_calc=[center_point[0],int(1.6*center_point[1])]
+            # cv2.circle(img,point_calc,10,(255,25,0),-1)
             contours = find_contour(mask)
             for c in contours :
                 if len(c)>20 and len(c)<100:
@@ -163,45 +166,44 @@ if __name__ == '__main__':
             cv2.putText(img,"Trailer : {}".format(list_count[2]),(10,90),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
             cv2.putText(img,"Truck : {}".format(list_count[3]),(10,110),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
             cv2.putText(img,"SUM OUT : {}".format(sum(list_count)),(10,150),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,125,255),1)
-            if cs :
-                cv2.putText(img,"Person : Found ",(10,130),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
-            else :
-                cv2.putText(img,"Person : Not Found ",(10,130),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
-            print(" Have {} object in region".format(len(bbox)))
+
+            # print(" Have {} object in region".format(len(bbox)))
             for box,cl,id in zip(bbox,cls,online_ids):
                 if int(cl)!=2 :
                     mid_point=(int((box[0]+box[2])/2),int((box[1]+box[3])/2))
                     if str(id) not in start_point.keys():
-                        start_point[str(id)]=[mid_point,time.time()]
-                        print("Add object to dict")
-                    update_point[str(id)]=[mid_point,time.time()]
-
-                
-            list_start_point_keys=list(start_point.keys())
-            list_update_point_keys=list(update_point.keys())
-            
-            
-            
-            '''
-            Hàm xử lý khi đã có 3 mảng
-            '''
-            '''
-            Khởi tạo 1 biến bool để làm chậm 1 nhịp cập nhật value trong dict 
-            
-            '''
-            if check %2 ==0 :
-                update_point_t1=update_point.copy()
-                check +=1 
-            '''
-            Phát hiện đối tượng đi ra khỏi vùng quan sát 
-            '''
-            print(" Có  {} đối tượng đã đi ra khỏi vùng quan sát ".format(len(list_start_point_keys)-len(list_update_point_keys)))
-            print("Current ",list_update_point_keys)
-            print("Previous ",list_start_point_keys)
-            print("At time t -1 :",list(update_point_t1.keys()))
-            # if list_start_point_keys!= list_update_point_keys :
-            #     print("Have some objects disappear")
-                  
+                        start_point[str(id)]=[mid_point,time.perf_counter()]
+                        # print("Add object to dict")
+                    update_point[str(id)]=[mid_point,time.perf_counter()]
+                    
+                    '''
+                    check những event đứng yên của đối tượng
+                    '''
+                    MIN=40
+                    mid_point_t=start_point[str(id)][0]
+                    t=start_point[str(id)][1]
+                    mid_point_t_1=update_point[str(id)][0]
+                    
+                    t_1=update_point[str(id)][1]-t
+                    
+                    distance_pixel=math.hypot(abs(mid_point_t[0]-mid_point_t_1[0]),abs(mid_point_t[1]-mid_point_t_1[1]))
+                    if distance_pixel<MIN and t_1>5:
+                        cv2.putText(img,"Stopped",(int(box[0]),int(box[1]+10)),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,12,244),1)
+                    results_goal=cv2.pointPolygonTest(area_Goal,mid_point,False)
+                    if results_goal>=0:
+                        mid_point_prev=start_point[str(id)][0]
+                        start_time=start_point[str(id)][1]
+                        distance_pixel=math.hypot(abs(mid_point[0]-mid_point_prev[0]),abs(mid_point[1]-mid_point_prev[1]))
+                        end_time=update_point[str(id)][1]-start_time
+                        print("Time",end_time)
+                        print("Đối tượng {} chuẩn bị thoát ra khỏi vùng kiểm soát".format(id))
+                        distance_const=distance_pixel*0.3 # m
+                        velocity=(distance_const/end_time)*3.6
+                        print("velocity : ",velocity)
+                        print("Khoảng cách đối tượng di chuyển trong vùng quan sát là :",distance_const)
+                        cv2.putText(img,"{:.2f} km/h".format(velocity),(int(box[0]),int(box[1]+10)),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,12,14),1)
+                    
+        result.write(img)        
         cv2.imshow('frame',img)
         ##### Clear dict update_point_t1 sau khi đã sử dụng ###########
         
