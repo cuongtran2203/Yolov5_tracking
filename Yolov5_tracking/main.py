@@ -12,8 +12,7 @@ p1, p2,p3,p4 = None, None,None,None
 state = 0
 frame =None
 crop = False
-CLASS_NAME=["bus","car","person","trailer","truck"]
-CLASS_NAME2=["bus","car","lane","person","trailer","truck","bike"]
+CLASS_NAME=["bus","car","lane","person","trailer","truck","bike"]
 def get_area_detect(img, points):
     # points = points.reshape((-1, 1, 2))
     mask = np.zeros(img.shape[:2], np.uint8)
@@ -79,17 +78,24 @@ class Tracking():
             online_targets = self.tracker.update(outputs, [height,width], self.test_size, filter_class)
             online_tlwhs = []
             online_ids = []
-            for t,cl in zip(online_targets,cls):
+            online_scores = []
+            current_dict_info={}
+            for t in online_targets:
                 tlwh = t.tlwh
                 tid = t.track_id              
                 online_tlwhs.append(tlwh)
                 online_ids.append(tid)
-        return bbox,cls,online_ids,scores
+                online_scores.append(t.score)
+            for cl, id in zip(cls,online_ids) :
+                if str(id) not in M[CLASS_NAME[int(cl)]]:
+                    M[CLASS_NAME[int(cl)]].append(str(id))
+                if int(cl)==2 :
+                    cs=True
+            list_count=[len(M["car"]),len(M["bus"]),len(M["trailer"]),len(M["truck"])]
+        return list_count,cs,bbox,cls,online_ids
 
 if __name__ == '__main__':
-    cap=cv2.VideoCapture("./video/video5.avi")
-    width=int(cap.get(3))
-    height=int(cap.get(4))
+    cap=cv2.VideoCapture("./video/video10.avi")
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     img = np.zeros((1280,720,3), np.uint8)
     track=Tracking()
@@ -126,109 +132,73 @@ if __name__ == '__main__':
             cv2.polylines(img,[pts],True,(0,0,142),3)
             img_copy=img_croped.copy()
             #Tracking
-            bbox,cls,id_list,scores=track.infer(img_croped)
+            list_count,cs,bbox,cls,online_ids=track.infer(img_croped)
+            for box in bbox :
+                cv2.rectangle(img,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),(255,0,125),2)
+                box=list(map(int,box))
+                img_vehicle=np.zeros([box[3]-box[1],box[2]-box[0],3],dtype=np.uint8,order='C')
+                img_copy[box[1]:box[3],box[0]:box[2]]=img_vehicle
+            mask=find_lane_line(img_copy)
             arr_point=[p1,p2,p3,p4]
             #sort array from y
             arr_point.sort(key=lambda x:x[1])
-            arr_point2=[p1,p2,p3,p4]
-            arr_point2.sort()
-            p1_2,p2_2,p3_2,p4_2=arr_point2
-            p1_1,p2_1,p3_1,p4_1=arr_point
             point_1=[int((arr_point[0][0]+arr_point[1][0])/2),int((arr_point[0][1]+arr_point[1][1])/2)]
             point_2=[int((arr_point[2][0]+arr_point[3][0])/2),int((arr_point[2][1]+arr_point[3][1])/2)]
             center=[point_1,point_2]
-            cv2.line(img,point_1,point_2,(0,255,0),4)
-            
-            cv2.putText(img,"LANE 1",(max(point_1[0],point_2[0])-100,point_1[1]+100),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(210,120,10),1)
-            cv2.putText(img,"LANE 2",(max(point_1[0],point_2[0])+50,point_1[1]+100),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(210,120,10),1)
-            '''
-            Viết phương trình đường thẳng  
-            '''
-            # Phương trình đường thẳng AB với A=p1_2 , B=p2_2
-            x1,y1=p1_2
-            x2,y2=p2_2
-            a_AB=((y1-y2))/(x1-x2)
-            b_AB=(y2*x1-y1*x2)/(x1-x2)
-            y_M=max(y1,y2)*0.6
-            x_M=(y_M-b_AB)/a_AB
-            K=[int(x_M),int(y_M)]
-            # Phương trình đường thẳng CD với C=p3_2 D=p4_2
-            x3,y3=p3_2
-            x4,y4=p4_2
-            a_CD=((y3-y4))/(x3-x4)
-            b_CD=(y4*x3-y3*x4)/(x3-x4)
-            y_N=max(y3,y4)*0.6
-            x_N=(y_N-b_CD)/a_CD
-            N=[int(x_N),int(y_N)]
-            area_Goal2=np.array([K,N,p3_1,p4_1],np.int32)
-            area_Goal=np.array([[p4_1[0],p4_1[1]-150],[p3_1[0],p3_1[1]-150],p3_1,p4_1],dtype=np.int32)
-            cv2.polylines(img,[area_Goal],True,(0,125,125),4)
-
-            for box,cl,id,sc in zip(bbox,cls,id_list,scores):
-                cv2.rectangle(img,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),(255,0,125),2)
-                    # cv2.putText(img,str(id),(int(box[0]),int(box[1])-10),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
-                if int(cl)==3:
-                    cv2.putText(img,"Person : Found ",(10,130),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
-                
-
-                
-                if  int(cl)!=2 :
-                    cv2.putText(img,CLASS_NAME2[int(cl)],(int(box[2]),int(box[3])-10),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
-                    cv2.putText(img,str(id),(int(box[0]),int(box[1])-10),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
+            contours = find_contour(mask)
+            for c in contours :
+                if len(c)>20 and len(c)<100:
+                    dist=calculate_distance(c[0][0],np.array(center))
+                    x,y,w,h=cv2.boundingRect(c)
+                    img_contour=np.zeros([h,w,3],dtype=np.uint8,order="C")
+                    img_copy[y:y+h,x:x+w]=img_contour
+                    if dist <60 :
+                        c3_new.append(c)
+                        cv2.drawContours(img,c,-1,(0,0,255),3)
+            cv2.putText(img,"Bus : {}".format(list_count[1]),(10,50),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
+            cv2.putText(img,"Car : {}".format(list_count[0]),(10,70),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
+            cv2.putText(img,"Trailer : {}".format(list_count[2]),(10,90),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
+            cv2.putText(img,"Truck : {}".format(list_count[3]),(10,110),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
+            cv2.putText(img,"SUM OUT : {}".format(sum(list_count)),(10,150),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,125,255),1)
+            if cs :
+                cv2.putText(img,"Person : Found ",(10,130),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
+            else :
+                cv2.putText(img,"Person : Not Found ",(10,130),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1)
+            print(" Have {} object in region".format(len(bbox)))
+            for box,cl,id in zip(bbox,cls,online_ids):
+                if int(cl)!=2 :
                     mid_point=(int((box[0]+box[2])/2),int((box[1]+box[3])/2))
                     if str(id) not in start_point.keys():
-                        start_point[str(id)]=[mid_point,time.perf_counter()]
-                        # print("Add object to dict")
-                    update_point[str(id)]=[mid_point,time.perf_counter()]
-                    
-                    '''
-                    Phân chia làn 
-                    '''
-                    if mid_point[0]<max(point_1[0],point_2[0]):
-                        if str(id) not in M_left[CLASS_NAME2[int(cl)]] :
-                            M_left[CLASS_NAME2[int(cl)]].append(str(id))
-                        print(" Đối tượng đang ở Làn 1 ")
-                        list_count_left=[len(M_left["car"]),len(M_left["bus"]),len(M_left["trailer"]),len(M_left["truck"])]
-                    else :
-                        if str(id) not in M_right[CLASS_NAME2[int(cl)]] :
-                            M_right[CLASS_NAME2[int(cl)]].append(str(id))
-                        print("Đối tượng đang ở làn 2")
-                        list_count_right=[len(M_right["car"]),len(M_right["bus"]),len(M_right["trailer"]),len(M_right["truck"])]
-                        
-                    mid_point_t=start_point[str(id)][0]
-                    t=start_point[str(id)][1]
-                    mid_point_t_1=update_point[str(id)][0]
-                    
-                    t_1=update_point[str(id)][1]-t
-                    
-                    distance_pixel=math.hypot(abs(mid_point_t[0]-mid_point_t_1[0]),abs(mid_point_t[1]-mid_point_t_1[1]))
-                    if distance_pixel<MIN and t_1>5:
-                        cv2.putText(img,"Stopped",(int(box[0]),int(box[1]+10)),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(0,12,244),1)
-                    results_goal=cv2.pointPolygonTest(area_Goal,mid_point,False)
-                    if results_goal>=0:
-                        mid_point_prev=start_point[str(id)][0]
-                        start_time=start_point[str(id)][1]
-                        distance_pixel=math.hypot(abs(mid_point[0]-mid_point_prev[0]),abs(mid_point[1]-mid_point_prev[1]))
-                        end_time=update_point[str(id)][1]-start_time
-                        print("Time",end_time)
-                        print("Đối tượng {} chuẩn bị thoát ra khỏi vùng kiểm soát".format(id))
-                        distance_const=distance_pixel*0.3 # m
-                        velocity=(distance_const/end_time)*3.6
-                        print("velocity : ",velocity)
-                        print("Khoảng cách đối tượng di chuyển trong vùng quan sát là :",distance_const)
-                        cv2.putText(img,"{:.2f} km/h".format(velocity),(int(box[0]),int(box[1]+10)),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,12,14),1)
-            cv2.putText(img,"Bus : {}".format(list_count_left[1]),(max(point_1[0],point_2[0])-250,50),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,200),2)
-            cv2.putText(img,"Car : {}".format(list_count_left[0]),(max(point_1[0],point_2[0])-250,70),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,200),2)
-            cv2.putText(img,"Trailer : {}".format(list_count_left[2]),(max(point_1[0],point_2[0])-250,90),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,200),2)
-            cv2.putText(img,"Truck : {}".format(list_count_left[3]),(max(point_1[0],point_2[0])-250,110),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,200),2)
-            cv2.putText(img,"SUM LANE 1 : {}".format(sum(list_count_left)),(max(point_1[0],point_2[0])-250,150),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,200),2) 
-            cv2.putText(img,"Bus : {}".format(list_count_right[1]),(max(point_1[0],point_2[0])+250,50),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,255),2)
-            cv2.putText(img,"Car : {}".format(list_count_right[0]),(max(point_1[0],point_2[0])+250,70),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,255),2)
-            cv2.putText(img,"Trailer : {}".format(list_count_right[2]),(max(point_1[0],point_2[0])+250,90),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,255),2)
-            cv2.putText(img,"Truck : {}".format(list_count_right[3]),(max(point_1[0],point_2[0])+250,110),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,255),2)
-            cv2.putText(img,"SUM LANE 2 : {}".format(sum(list_count_right)),(max(point_1[0],point_2[0])+250,150),cv2.FONT_HERSHEY_COMPLEX_SMALL,1,(255,255,255),2)           
-        # result.write(img)
-        #  
+                        start_point[str(id)]=[mid_point,time.time()]
+                        print("Add object to dict")
+                    update_point[str(id)]=[mid_point,time.time()]
+
+                
+            list_start_point_keys=list(start_point.keys())
+            list_update_point_keys=list(update_point.keys())
+            
+            
+            
+            '''
+            Hàm xử lý khi đã có 3 mảng
+            '''
+            '''
+            Khởi tạo 1 biến bool để làm chậm 1 nhịp cập nhật value trong dict 
+            
+            '''
+            if check %2 ==0 :
+                update_point_t1=update_point.copy()
+                check +=1 
+            '''
+            Phát hiện đối tượng đi ra khỏi vùng quan sát 
+            '''
+            print(" Có  {} đối tượng đã đi ra khỏi vùng quan sát ".format(len(list_start_point_keys)-len(list_update_point_keys)))
+            print("Current ",list_update_point_keys)
+            print("Previous ",list_start_point_keys)
+            print("At time t -1 :",list(update_point_t1.keys()))
+            # if list_start_point_keys!= list_update_point_keys :
+            #     print("Have some objects disappear")
+                  
         cv2.imshow('frame',img)
         ##### Clear dict update_point_t1 sau khi đã sử dụng ###########
         
