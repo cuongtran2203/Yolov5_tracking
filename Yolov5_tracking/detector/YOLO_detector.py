@@ -4,7 +4,7 @@ import onnxruntime
 from .func import *
 
 class Detector(object):
-    def __init__(self, model='weights/model_ver2.onnx') -> None:
+    def __init__(self, model='weights/yolov5n_12_2.onnx') -> None:
         self.providers = ['CPUExecutionProvider']
         self.session = onnxruntime.InferenceSession(model, providers=self.providers)
     
@@ -22,11 +22,17 @@ class Detector(object):
 
     def detect(self, image):
         blob = self.__pre_process(image)
+        start=time.perf_counter()
         outputs = self.session.run(None, {self.session.get_inputs()[0].name:np.asarray(blob)})
+        # print("time :{:.3f} s".format(time.perf_counter()-start))
         output_data = torch.tensor(outputs[0])
         y = non_max_suppression(output_data, 0.25, 0.45)[0]
         y[:, :4] = scale_boxes(blob.shape[2:], y[:, :4], image.shape).round()
         bbox=y[:, :4]
+        print(bbox)
+        # for box in bbox:
+        #     cv2.rectangle(image,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),(255,0,0),1)
+        
         return y,bbox
 
 
